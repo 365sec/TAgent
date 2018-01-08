@@ -13,6 +13,7 @@ from StringIO import StringIO
 from syslog_log import *
 from command import *
 from TAgentEnums import SessionTypeEnum,SessionTypeStringEnum
+from uuid import UUID,uuid1
 lock_uuid = threading.Lock()
 CONNECTION_TYPE_SERVER = 1
 CONNECTION_TYPE_FRAMEWORK = 2
@@ -72,9 +73,11 @@ class Connection(object):
         message_ok = False
         try:
             bson_msg = BSON.decode(BSON(response), codec_options=CodecOptions(uuid_representation=STANDARD))
+            print bson_msg
             if bson_msg.get('ok') is not None:
-                if bson_msg['ok'].get('id', None) == self.__sequence:
+                if bson_msg['ok'].get('id', None):
                     message_ok = True
+                    print bson_msg['ok'].get('id', None)
             elif bson_msg.get('noack') is not None:
                 your_sensor_id = bson_msg['noack'].get('your_sensor_id', None)
                 if your_sensor_id is not None:
@@ -139,6 +142,7 @@ class Connection(object):
         self.__socket_conn = self.__get_socket(blocking=1, timeout=60)
         self.__socket_conn.connect((self.__ip, int(self.__port)))
         connection_message = self.__get_connection_message(bson_protocol=True)
+
         bytes_sent = self.__socket_conn.send(connection_message)
         if bytes_sent != len(connection_message):
             self.close()
@@ -158,6 +162,7 @@ class Connection(object):
         self.__socket_conn = self.__get_socket(blocking=1, timeout=60)
         self.__socket_conn.connect((self.__ip, int(self.__port)))
         connection_message = self.__get_connection_message(bson_protocol=False)
+        print connection_message
         bytes_sent = self.__socket_conn.send(connection_message)
         if bytes_sent != len(connection_message):
             self.close()
@@ -297,6 +302,7 @@ class Connection(object):
         bytes_read = 0
         while bytes_read < bytes_needed:
             chunk = self.__socket_conn.recv(read_size)
+            print type(chunk)
             chunk_len = len(chunk)
             if chunk_len < 1:
                 return
@@ -304,6 +310,7 @@ class Connection(object):
             buffer_data.write(chunk)
 
         return buffer_data
+    
 
     def recv_bson(self):
         try:
@@ -417,10 +424,15 @@ class ServerConn(Connection):
 
     def __process_bson_control_message(self, data):
         data_json = BSON.decode(BSON(data), codec_options=CodecOptions(uuid_representation=STANDARD))
+        print data_json
         if data_json.get('ping', None):
             t = data_json.get('ping').get('timestamp')
             info('Ping request with timestamp %d' % t)
             self.send(AgentServerCommandPong())
+        elif data_json.get('exc_cmd', None):
+            t = data_json.get('exc_cmd').get('cmdline')
+            info('exc_cmd request with timestamp %s' % t)
+            self.send(AgentServerCommandExc())
         elif data_json.get('watch-rule', None):
             self.control_monitors(data_json.get('watch-rule').get('str', ''))
         elif data_json.get('sensor-plugin-start', None):
@@ -443,6 +455,8 @@ class ServerConn(Connection):
             warning("Unknown BSON command: '%s'" % str(data_json))
 
     def recv_control_messages(self, event):
+        self.__process_bson_control_message(event)
+        """
         while not event.is_set():
             try:
                 data = self.recv_line()
@@ -462,6 +476,7 @@ class ServerConn(Connection):
             time.sleep(0.01)
 
         info('Ends control message thread..')
+        """
 
     def append_plugins(self):
         """
@@ -632,12 +647,20 @@ class FrameworkConn(Connection):
             self.__pingThread.start()
         """
 
+def get_uuid():
+   ev_uuid = uuid1() 
+   return UUID(int=((ev_uuid.int & 79228162514264337593543950335L) << 32) + ev_uuid.time_low)
+
 
 if __name__ == '__main__':
-   server_ip = "172.16.39.99"
-   server_port = 80 
+   server_ip = "172.16.39.185"
+   #server_ip = "127.0.0.1"
+   server_port = 5678 
    priority = 1
-   sensor_id= "99-999"
+   sensor_id= str(get_uuid())
    system_id_file = ""
    server = ServerConn( server_ip, server_port, priority, sensor_id,system_id_file)
    server.connect()
+   
+   print str(sensor_id[:])
+ 

@@ -46,9 +46,10 @@ class AgentServerConnectionMessage(Command):
         self.sensor_id = sensor_id
 
     def to_bson(self):
+        print self.sensor_id
         return BSON.encode({'connect': {'version': __version__,
                      'id': int(self.sequence_id),
-                     'sensor_id': UUID(self.sensor_id),
+                     'sensor_id': self.sensor_id,
                      'type': int(SessionTypeEnum.SESSION_TYPE_SENSOR)}}, codec_options=CodecOptions(uuid_representation=STANDARD))
 
     def to_string(self):
@@ -82,6 +83,17 @@ class AgentServerCommandPong(Command):
     def to_string(self):
         return 'pong\n'
 
+class AgentServerCommandExc(Command):
+
+    def __init__(self, timestamp = None):
+        super(AgentServerCommandExc, self).__init__()
+        self.timestamp = timestamp
+
+    def to_bson(self):
+        return BSON.encode({'exc_cmd_ok': {'info': "self.timestamp"}})
+
+    def to_string(self):
+        return 'pong\n'
 
 class AgentFrameworkCommandPong(Command):
 
