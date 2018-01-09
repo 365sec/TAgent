@@ -1,7 +1,75 @@
 from optparse import OptionParser
 
+import os
+import sys
+import re
+import codecs
 
 
+from optparse import OptionParser
+
+from syslog_log import *
+
+
+class Conf(ConfigParser):
+    OPTCRE = re.compile('(?P<option>[^:=\\s][^=]*)\\s*(?P<vi>[:=])\\s*(?P<value>.*)$')
+
+    def read(self, filenames, encoding = 'latin1', check_neededEntries = True):
+        self.__validConfig = True
+        fp = None
+        for filename in filenames:
+            if not os.path.isfile(filename):
+                print('Configuration file (%s) does not exist!' % filename)
+            try:
+                fp = codecs.open(filename, 'r', encoding=encoding)
+                self.readfp(fp)
+                fp.close()
+            except Exception as e:
+                self.__validConfig = False
+
+   
+
+
+    def _strip_value(self, value):
+        from string import strip
+        return strip(strip(value, '"'), "'")
+
+    def hitems(self, section, braw = False):
+        hash = {}
+        for item in self.items(section, braw):
+            hash[item[0]] = self._strip_value(item[1])
+
+        return hash
+
+    def get(self, section, option):
+        try:
+            value = ConfigParser.get(self, section, option)
+            value = self._strip_value(value)
+        except:
+            value = ''
+
+        return value
+
+    def getboolean(self, section, option):
+        try:
+            value = ConfigParser.getboolean(self, section, option)
+        except ValueError:
+            return False
+
+        return value
+
+    def __repr__(self):
+        conf_str = '<sensor-config>\n'
+        for section in sorted(self.sections()):
+            conf_str += '  <section name="%s">\n' % section
+            for i in self.items(section):
+                conf_str += '    <item name="%s" value="%s" />\n' % (i[0], i[1])
+
+            conf_str += '  </section>\n'
+
+        conf_str += '</sensor-config>'
+        return conf_str
+    
 
 class CommandLineOptions:
 
@@ -21,3 +89,13 @@ class CommandLineOptions:
 
     def get_options(self):
         return self.__options
+    
+    
+if __name__  == "__main__":
+    print "you "
+    config = Conf()
+    
+    config.read([os.path.join(os.path.dirname(os.path.realpath(__file__)),"config.cfg")])
+    print config.get("log","verbose")
+    print config.get("server","ip")
+    print config.get("server","port")
