@@ -66,12 +66,16 @@ class Agent():
                   chunk= server_socket.recv(1024*1024)
                   read_buff += chunk
                   read_buff_len = len(read_buff)
+                  print read_buff_len
                   while( read_buff_len > 4) :
                      packet, read_buff = self.get_bson_packet(read_buff,read_buff_len)
                      if packet:
                        print "push a packet"
                        self.recv_packet_queue.put(packet)
-                     read_buff_len = len(read_buff)
+                       read_buff_len = len(read_buff)
+                     else :
+                       break
+                     
           except  Exception as e:
                print e
                  
